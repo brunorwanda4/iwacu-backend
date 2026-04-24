@@ -1,0 +1,192 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Location {
+  id String @id @default(uuid())
+  name String
+  nameKinyarwanda String?
+  level Int // 1=Province, 2=District, 3=Sector, 4=Cell, 5=Village
+  parentId String?
+  parent Location? @relation("LocationTree", fields: [parentId], references: [id])
+  children Location[] @relation("LocationTree")
+  latitude Float?
+  longitude Float?
+
+  citizens Citizen[]
+  leaders Leader[]
+  announcements Announcement[]
+  serviceRequests ServiceRequest[]
+  visitorRegistrations VisitorRegistration[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([name, parentId])
+  @@index([parentId])
+  @@index([level])
+}
+
+model Citizen {
+  id String @id @default(uuid())
+  nationalId String @unique
+  firstName String
+  lastName String
+  phoneNumber String?
+  dateOfBirth DateTime?
+  gender String?
+  homeLocationId String
+  homeLocation Location @relation(fields: [homeLocationId], references: [id])
+  profilePhotoUrl String?
+  isLeader Boolean @default(false)
+  isActive Boolean @default(true)
+
+  sessions Session[]
+  leader Leader?
+  serviceRequests ServiceRequest[]
+  visitorRegistrations VisitorRegistration[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([nationalId])
+  @@index([homeLocationId])
+}
+
+model Session {
+  id String @id @default(uuid())
+  citizenId String
+  citizen Citizen @relation(fields: [citizenId], references: [id], onDelete: Cascade)
+  refreshToken String @unique
+  deviceInfo String?
+  ipAddress String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  lastUsedAt DateTime?
+
+  @@index([citizenId])
+  @@index([refreshToken])
+}
+
+model Leader {
+  id String @id @default(uuid())
+  citizenId String @unique
+  citizen Citizen @relation(fields: [citizenId], references: [id], onDelete: Cascade)
+  locationId String @unique
+  location Location @relation(fields: [locationId], references: [id])
+  title String
+  phoneNumber String?
+  email String?
+  officeAddress String?
+  officeLatitude Float?
+  officeLongitude Float?
+  profilePhotoUrl String?
+  bio String?
+  canPostAnnouncements Boolean @default(true)
+  isActive Boolean @default(true)
+  appointedAt DateTime?
+
+  announcements Announcement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([citizenId])
+  @@index([locationId])
+}
+
+model Announcement {
+  id String @id @default(uuid())
+  leaderId String
+  leader Leader @relation(fields: [leaderId], references: [id], onDelete: Cascade)
+  locationId String
+  location Location @relation(fields: [locationId], references: [id])
+  title String
+  body String
+  category String // general, meeting, infrastructure, health, security, umuganda, emergency
+  isUrgent Boolean @default(false)
+  scheduledAt DateTime?
+  expiresAt DateTime?
+  attachmentUrl String?
+  viewCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leaderId])
+  @@index([locationId])
+  @@index([createdAt])
+  @@index([isUrgent])
+}
+
+model ServiceDepartment {
+  id String @id @default(uuid())
+  name String @unique
+  nameKinyarwanda String?
+  description String?
+  category String // security, utilities, health, finance, transport, education, land, general
+  phoneNumber String?
+  email String?
+  websiteUrl String?
+  isActive Boolean @default(true)
+
+  serviceRequests ServiceRequest[]
+
+  createdAt DateTime @default(now())
+
+  @@index([isActive])
+}
+
+model ServiceRequest {
+  id String @id @default(uuid())
+  citizenId String
+  citizen Citizen @relation(fields: [citizenId], references: [id], onDelete: Cascade)
+  departmentId String
+  department ServiceDepartment @relation(fields: [departmentId], references: [id])
+  subject String
+  body String
+  status String @default("submitted") // submitted, acknowledged, in_progress, resolved, closed
+  priority String @default("normal") // low, normal, high, urgent
+  referenceNumber String @unique
+  responseText String?
+  respondedAt DateTime?
+  locationId String?
+  location Location? @relation(fields: [locationId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([citizenId])
+  @@index([departmentId])
+  @@index([referenceNumber])
+  @@index([status])
+}
+
+model VisitorRegistration {
+  id String @id @default(uuid())
+  hostCitizenId String
+  host Citizen @relation(fields: [hostCitizenId], references: [id], onDelete: Cascade)
+  visitorName String
+  visitorNationalId String?
+  visitorPhone String?
+  purposeOfVisit String?
+  arrivalDate DateTime
+  expectedDepartureDate DateTime?
+  actualDepartureDate DateTime?
+  locationId String
+  location Location @relation(fields: [locationId], references: [id])
+  isDeparted Boolean @default(false)
+  notes String?
+
+  createdAt DateTime @default(now())
+
+  @@index([hostCitizenId])
+  @@index([locationId])
+}

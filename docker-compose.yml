@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iwacu-api
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://iwacu_user:iwacu_pass@db:5432/iwacu_db
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-min-32-characters-long-for-security}
+      JWT_EXPIRY: 15m
+      REFRESH_TOKEN_EXPIRY: 7d
+      PORT: 3000
+      NODE_ENV: development
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - iwacu-network
+    restart: unless-stopped
+
+  db:
+    image: postgres:15-alpine
+    container_name: iwacu-db
+    environment:
+      POSTGRES_USER: iwacu_user
+      POSTGRES_PASSWORD: iwacu_pass
+      POSTGRES_DB: iwacu_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - iwacu-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U iwacu_user -d iwacu_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  iwacu-network:
+    driver: bridge
